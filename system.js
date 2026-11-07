@@ -41,6 +41,7 @@ const TONES = {
 const BAR_ID = "nexus-system-banner";
 const GATE_ID = "nexus-system-gate";
 const STYLE_ID = "nexus-system-style";
+const isTopLevel = window.top === window.self;
 
 let currentState = {};
 let isStaff = false;
@@ -165,14 +166,14 @@ function paint() {
 
     document.documentElement.dataset.systemStatus = mode;
 
-    const bar = ensureBar();
+    const bar = isTopLevel ? ensureBar() : null;
     const gate = ensureGate();
     const blocked = def.blocking && authSettled && !isStaff;
 
     // Staff (or anyone when nothing is wrong) see at most a slim banner.
     const staffNotice = isStaff && def.blocking;
-    const showBar = (blocked ? false : (staffNotice || (announce && !(def.staffOnly && !isStaff))));
-    if (showBar) {
+    const showBar = isTopLevel && (blocked ? false : (staffNotice || (announce && !(def.staffOnly && !isStaff))));
+    if (showBar && bar) {
         const tone = TONES[def.blocking ? "danger" : banner.tone] || TONES.info;
         const message = def.blocking
             ? (currentState?.message || `Nexus is in ${def.label.toLowerCase()}. You are seeing this because your account bypasses it.`)
@@ -186,7 +187,7 @@ function paint() {
         tag.textContent = def.blocking ? `${def.label} · staff bypass` : (def.staffOnly ? "Testing" : "Notice");
         tag.style.color = tone.dot;
         bar.hidden = false;
-    } else {
+    } else if (bar) {
         bar.hidden = true;
     }
 
@@ -207,7 +208,9 @@ function paint() {
     }
 }
 
-if (window.top === window.self) {
+// Runs in the shell and inside the frame: a page opened directly has to be
+// blocked too, not only the shell that happens to frame it.
+{
     injectStyle();
     try {
         const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
